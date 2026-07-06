@@ -1,0 +1,237 @@
+
+> cogitx-case@0.1.0 demo:trace
+> tsx scripts/trace.ts
+
+
+Commerce Brain — golden-path trace (mock mode, no API key)
+Apna Aisle · household: Sharma family (Bengaluru)
+allergies: contains-peanut · deliberate choices: oil-fortune-1, toor-dks-1, paneer-dks-200
+
+══════════════════════════════════════════════════════════════════════════
+  PATH 1 — Plan a meal to a budget
+══════════════════════════════════════════════════════════════════════════
+shopper says: "Plan dinner for 4 under Rs 800, veg"
+
+intent classified: plan_meal (SLM tier)
+
+Agent trace (in fire order)
+──────────────────────────────────────────────────────────────────────────
+[SLM ] concierge            classified intent
+      "Plan dinner for 4 under Rs 800, veg" → plan_meal (model: heuristic (SLM stand-in))
+[LLM ] discovery            searched catalog
+      "paneer dinner" → 2 candidates
+[LLM ] basket-builder       updated basket
+      +8 / -0 → 8 lines, ₹488
+[LLM ] budget-substitution  checked budget
+      total ₹488 vs cap ₹800 → within budget
+
+  (no retailer-side steers on this path)
+
+Composed Concierge reply (frontier LLM voice)
+──────────────────────────────────────────────────────────────────────────
+  Planned a veg dinner for four: 2× Apna Select Fresh Paneer (₹178), 1× Capsicum (₹45), 1× Tomato (₹42), 1× Onion (₹38), 1× Daawat Rozana Super Basmati (₹118), 1× Nandini Curd (₹40), 1× Coriander Leaves (₹15), 1× Green Chilli (₹12). That's ₹488 — comfortably under your ₹800 budget. Say the word and I'll add it to your basket for checkout.
+
+Final basket
+──────────────────────────────────────────────────────────────────────────
+  8 lines · total ₹488
+
+══════════════════════════════════════════════════════════════════════════
+  PATH 2 — The usual weekly order (the two-sided proof)
+══════════════════════════════════════════════════════════════════════════
+shopper says: "My usual weekly order"
+
+intent classified: replenish (SLM tier)
+
+Replenishment model — per-SKU learned cadence (deterministic, no LLM)
+──────────────────────────────────────────────────────────────────────────
+  qty  item                                   interval   last buy    verdict
+   1×  Apna Select Toor Dal                ~14d      22d ago    DUE
+   1×  Aashirvaad Whole Wheat Atta         ~18d      22d ago    DUE
+   4×  Amul Taaza Toned Milk               ~ 7d       8d ago    DUE
+   1×  Onion                               ~ 7d       8d ago    DUE
+   1×  Tomato                              ~ 7d       8d ago    DUE
+   1×  Potato                              ~ 7d       8d ago    DUE
+   1×  Robusta Banana                      ~ 7d       8d ago    DUE
+   2×  Apna Select Fresh Paneer            ~ 7d       8d ago    DUE
+   1×  Coriander Leaves                    ~ 7d       8d ago    DUE
+   2×  Nandini Curd                        ~14d      15d ago    DUE
+   1×  Apna Select Rolled Oats             ~14d      15d ago    DUE
+   1×  Fortune Sunlite Refined Sunflower   ~21d      22d ago    DUE
+   1×  Apna Select Basmati Rice            ~28d      29d ago    DUE
+   1×  Apna Select Assam Tea               ~28d      29d ago    DUE
+  (single-purchase SKUs like Tata Salt are skipped: no inferable interval)
+
+Agent trace (in fire order)
+──────────────────────────────────────────────────────────────────────────
+[SLM ] concierge            classified intent
+      "My usual weekly order" → replenish (model: heuristic (SLM stand-in))
+[DET ] replenishment        drafted replenishment basket
+      14 due item(s) from consumption model
+[DET ] margin               ranked margin candidates
+      9 candidate steer(s) proposed
+[DET ] trust-arbiter        approved steer
+      Discount Coriander Leaves — [passed R1–R5] Discounted and dated (use by Tue, 7 Jul); shopper saves money, no constraint touched.
+[DET ] trust-arbiter        queued steer
+      Discount Tomato — [R5: max 2 flagged steers per draft basket] Steer budget of 2 reached — safe, but queued for next week's draft.
+[DET ] trust-arbiter        queued steer
+      Discount Robusta Banana — [R5: max 2 flagged steers per draft basket] Steer budget of 2 reached — safe, but queued for next week's draft.
+[DET ] trust-arbiter        queued steer
+      Discount Amul Taaza Toned Milk — [R5: max 2 flagged steers per draft basket] Steer budget of 2 reached — safe, but queued for next week's draft.
+[DET ] trust-arbiter        queued steer
+      Discount Nandini Curd — [R5: max 2 flagged steers per draft basket] Steer budget of 2 reached — safe, but queued for next week's draft.
+[DET ] trust-arbiter        blocked steer
+      Attach Apna Select Peanut Butter — [R1: dietary/allergy constraints are absolute] Apna Select Peanut Butter is tagged "contains-peanut"; household has a peanut allergy.
+[DET ] trust-arbiter        blocked steer
+      Swap Fortune Sunlite Refined Sunflower Oil → Apna Select Groundnut Oil — [R1: dietary/allergy constraints are absolute] Apna Select Groundnut Oil is tagged "contains-peanut"; household has a peanut allergy.
+[DET ] trust-arbiter        blocked steer
+      Swap Fortune Sunlite Refined Sunflower Oil → Apna Select Premium Sunflower Oil — [R2: never suppress a cheaper equivalent already chosen] Fortune Sunlite Refined Sunflower Oil (₹140) was a deliberate choice and is cheaper than Apna Select Premium Sunflower Oil (₹175).
+[DET ] trust-arbiter        approved steer
+      Swap Aashirvaad Whole Wheat Atta → Apna Select Whole Wheat Atta — [passed R1–R5] Genuinely equivalent, same-or-lower price, constraint-safe.
+
+Margin agent — candidate steers proposed (retailer-lens only)
+──────────────────────────────────────────────────────────────────────────
+  expiry-clearance     Coriander Leaves
+      margin: Moves waste-risk perishable; avoids write-off on 80 units. (Δ 0 pts)
+  expiry-clearance     Tomato
+      margin: Moves waste-risk perishable; avoids write-off on 220 units. (Δ 0 pts)
+  expiry-clearance     Robusta Banana
+      margin: Moves waste-risk perishable; avoids write-off on 200 units. (Δ 0 pts)
+  expiry-clearance     Amul Taaza Toned Milk
+      margin: Moves waste-risk perishable; avoids write-off on 300 units. (Δ 0 pts)
+  expiry-clearance     Nandini Curd
+      margin: Moves waste-risk perishable; avoids write-off on 90 units. (Δ 0 pts)
+  attach               Apna Select Peanut Butter
+      margin: High-margin attach (42%). (Δ 42 pts)
+  private-label-swap   Fortune Sunlite Refined Sunflower Oil → Apna Select Groundnut Oil
+      margin: PL margin 38% vs 9% on Fortune. (Δ 29 pts)
+  private-label-swap   Fortune Sunlite Refined Sunflower Oil → Apna Select Premium Sunflower Oil
+      margin: PL margin 36% vs 9% on Fortune. (Δ 27 pts)
+  private-label-swap   Aashirvaad Whole Wheat Atta → Apna Select Whole Wheat Atta
+      margin: PL margin 34% vs 8% on Aashirvaad. (Δ 26 pts)
+
+Trust Arbiter — ruling on every steer (deterministic policy engine)
+──────────────────────────────────────────────────────────────────────────
+  APPROVED  Discount Coriander Leaves score 0.90
+            rule: passed R1–R5
+            why : Discounted and dated (use by Tue, 7 Jul); shopper saves money, no constraint touched.
+            shopper sees: "30% off — fresh stock priced to clear, use by Tue, 7 Jul."
+  QUEUED    Discount Tomato score 0.90
+            rule: R5: max 2 flagged steers per draft basket
+            why : Steer budget of 2 reached — safe, but queued for next week's draft.
+  QUEUED    Discount Robusta Banana score 0.90
+            rule: R5: max 2 flagged steers per draft basket
+            why : Steer budget of 2 reached — safe, but queued for next week's draft.
+  QUEUED    Discount Amul Taaza Toned Milk score 0.80
+            rule: R5: max 2 flagged steers per draft basket
+            why : Steer budget of 2 reached — safe, but queued for next week's draft.
+  QUEUED    Discount Nandini Curd score 0.80
+            rule: R5: max 2 flagged steers per draft basket
+            why : Steer budget of 2 reached — safe, but queued for next week's draft.
+  BLOCKED   Attach Apna Select Peanut Butter score 0.50
+            rule: R1: dietary/allergy constraints are absolute
+            why : Apna Select Peanut Butter is tagged "contains-peanut"; household has a peanut allergy.
+  BLOCKED   Swap Fortune Sunlite Refined Sunflower Oil → Apna Select Groundnut Oil score 0.20
+            rule: R1: dietary/allergy constraints are absolute
+            why : Apna Select Groundnut Oil is tagged "contains-peanut"; household has a peanut allergy.
+  BLOCKED   Swap Fortune Sunlite Refined Sunflower Oil → Apna Select Premium Sunflower Oil score 0.20
+            rule: R2: never suppress a cheaper equivalent already chosen
+            why : Fortune Sunlite Refined Sunflower Oil (₹140) was a deliberate choice and is cheaper than Apna Select Premium Sunflower Oil (₹175).
+  APPROVED  Swap Aashirvaad Whole Wheat Atta → Apna Select Whole Wheat Atta score 0.70
+            rule: passed R1–R5
+            why : Genuinely equivalent, same-or-lower price, constraint-safe.
+            shopper sees: "Same atta flour, our Apna Select label — ₹31 cheaper per pack."
+
+Composed Concierge reply (frontier LLM voice)
+──────────────────────────────────────────────────────────────────────────
+  Here's your usual weekly basket, drafted from your last 8 weeks of orders — 14 items, ₹2296.
+  
+  I also flagged 2 things worth a look, each with the reason:
+  • 30% off — fresh stock priced to clear, use by Tue, 7 Jul.
+  • Same atta flour, our Apna Select label — ₹31 cheaper per pack.
+  
+  Want me to tweak anything before you approve? A tap and the UPI mandate books your slot. You've saved ₹35 so far.
+
+Final basket
+──────────────────────────────────────────────────────────────────────────
+  14 lines · total ₹2296 · saved ₹35
+
+══════════════════════════════════════════════════════════════════════════
+  PATH 3 — Swap expiring items for discounts
+══════════════════════════════════════════════════════════════════════════
+shopper says: "Swap anything expiring soon for discounts"
+
+intent classified: substitute (SLM tier)
+
+Agent trace (in fire order)
+──────────────────────────────────────────────────────────────────────────
+[SLM ] concierge            classified intent
+      "Swap anything expiring soon for discounts" → substitute (model: heuristic (SLM stand-in))
+[DET ] replenishment        drafted replenishment basket
+      14 due item(s) from consumption model
+[DET ] margin               ranked margin candidates
+      5 candidate steer(s) proposed
+[DET ] trust-arbiter        approved steer
+      Discount Coriander Leaves — [passed R1–R5] Discounted and dated (use by Tue, 7 Jul); shopper saves money, no constraint touched.
+[DET ] trust-arbiter        approved steer
+      Discount Tomato — [passed R1–R5] Discounted and dated (use by Tue, 7 Jul); shopper saves money, no constraint touched.
+[DET ] trust-arbiter        queued steer
+      Discount Robusta Banana — [R5: max 2 flagged steers per draft basket] Steer budget of 2 reached — safe, but queued for next week's draft.
+[DET ] trust-arbiter        queued steer
+      Discount Amul Taaza Toned Milk — [R5: max 2 flagged steers per draft basket] Steer budget of 2 reached — safe, but queued for next week's draft.
+[DET ] trust-arbiter        queued steer
+      Discount Nandini Curd — [R5: max 2 flagged steers per draft basket] Steer budget of 2 reached — safe, but queued for next week's draft.
+
+Margin agent — candidate steers proposed (retailer-lens only)
+──────────────────────────────────────────────────────────────────────────
+  expiry-clearance     Coriander Leaves
+      margin: Moves waste-risk perishable; avoids write-off on 80 units. (Δ 0 pts)
+  expiry-clearance     Tomato
+      margin: Moves waste-risk perishable; avoids write-off on 220 units. (Δ 0 pts)
+  expiry-clearance     Robusta Banana
+      margin: Moves waste-risk perishable; avoids write-off on 200 units. (Δ 0 pts)
+  expiry-clearance     Amul Taaza Toned Milk
+      margin: Moves waste-risk perishable; avoids write-off on 300 units. (Δ 0 pts)
+  expiry-clearance     Nandini Curd
+      margin: Moves waste-risk perishable; avoids write-off on 90 units. (Δ 0 pts)
+
+Trust Arbiter — ruling on every steer (deterministic policy engine)
+──────────────────────────────────────────────────────────────────────────
+  APPROVED  Discount Coriander Leaves score 0.90
+            rule: passed R1–R5
+            why : Discounted and dated (use by Tue, 7 Jul); shopper saves money, no constraint touched.
+            shopper sees: "30% off — fresh stock priced to clear, use by Tue, 7 Jul."
+  APPROVED  Discount Tomato score 0.90
+            rule: passed R1–R5
+            why : Discounted and dated (use by Tue, 7 Jul); shopper saves money, no constraint touched.
+            shopper sees: "25% off — fresh stock priced to clear, use by Tue, 7 Jul."
+  QUEUED    Discount Robusta Banana score 0.90
+            rule: R5: max 2 flagged steers per draft basket
+            why : Steer budget of 2 reached — safe, but queued for next week's draft.
+  QUEUED    Discount Amul Taaza Toned Milk score 0.80
+            rule: R5: max 2 flagged steers per draft basket
+            why : Steer budget of 2 reached — safe, but queued for next week's draft.
+  QUEUED    Discount Nandini Curd score 0.80
+            rule: R5: max 2 flagged steers per draft basket
+            why : Steer budget of 2 reached — safe, but queued for next week's draft.
+
+Composed Concierge reply (frontier LLM voice)
+──────────────────────────────────────────────────────────────────────────
+  Found 2 items you can save on right now, each with why:
+  • 30% off — fresh stock priced to clear, use by Tue, 7 Jul.
+  • 25% off — fresh stock priced to clear, use by Tue, 7 Jul.
+  
+  Basket total is now ₹2317. You've saved ₹14 so far.
+
+Final basket
+──────────────────────────────────────────────────────────────────────────
+  14 lines · total ₹2317 · saved ₹14
+
+══════════════════════════════════════════════════════════════════════════
+  THESIS CHECK — the three slide-4 rulings
+══════════════════════════════════════════════════════════════════════════
+  ✓ Rule 1 BLOCK — peanut product steered at an allergic household — Attach Apna Select Peanut Butter
+  ✓ Rule 2 BLOCK — cheaper previously-chosen oil not suppressed — Swap Fortune Sunlite Refined Sunflower Oil → Apna Select Premium Sunflower Oil
+  ✓ APPROVE — Apna Select atta, cheaper & equivalent — Swap Aashirvaad Whole Wheat Atta → Apna Select Whole Wheat Atta
+
+  ALL THREE THESIS RULINGS PRESENT.
+
